@@ -37,13 +37,11 @@ func main() {
     
     rand.Seed(time.Now().UnixNano())                                    // To make shuffle non consistent
     rand.Shuffle(len(packets), func(i,j int) { 
-            packets[i], packets[j] = packets[j], packets[i]})          // Shuffle
+            packets[i], packets[j] = packets[j], packets[i]})          // Shuffle made to imitate uncertainty when sending packets
     
     for i := 0; i < len(split); i++ {
         fmt.Println(packets[i].message)
     }
-    
-    fmt.Println("-----------------------------------------------Received")
     
     comChan := make (chan communication)
     
@@ -61,20 +59,17 @@ func server(comChan chan communication) {
     for true {
         m := <- comChan
         if (m.message && !inUse) {                                      // Check request to use me
-            fmt.Println("------------------------------------------ReqReceived")
             inUse = true
             response.message = true
             response.packetChan = packetChannel                         // Put packet channel into response
             comChan <- response                                         // Send response
-            fmt.Println("------------------------------------------ResSent")
             m := <- comChan                               
             if (m.message) {                                            // If received necessary info then proceed
-                fmt.Println("------------------------------------------InfoReceived")
                 receivedPackets := make ([]packet, m.packetAmount)
                 for i := 0; i < m.packetAmount; i++ {
                     p := <- packetChannel
                     receivedPackets[p.index] = p                        // Puts the packet into the correct place
-                    fmt.Println("----------Packet", p.index, "Received")
+                    fmt.Println("-------------Packet", p.index, "Received")
                     comChan <- communication {packetReceived: p.index}  // Respond to received packet
                 }
                 
@@ -87,6 +82,7 @@ func server(comChan chan communication) {
         } else {
             response.message = false
         }
+        break;
     }
 }
 
@@ -94,12 +90,9 @@ func client(comChan chan communication, packets []packet) {
     for true {
     comChan <- communication {message: true}                            // Request to use server
         m := <- comChan
-        fmt.Println("------------------------------------------ReqSent")
         if (m.message) {                                                // Server free to use
-            fmt.Println("------------------------------------------ResReceived")
             comChan <- communication {
                     message: true, packetAmount: len(packets)}          // Sends amount of packets
-            fmt.Println("------------------------------------------InfoSent")
             
             var packetChannel = m.packetChan
             
