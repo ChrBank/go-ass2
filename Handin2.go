@@ -24,8 +24,6 @@ func main() {
     split := strings.Split(wholeMessage, "\n")
     
     packets := make([]packet, len(split))
-    
-    fmt.Println("-----------------------------------------------PreShuffle")
 
     for i := 0; i < len(split); i++ {
         packets[i] = packet{
@@ -42,6 +40,8 @@ func main() {
     for i := 0; i < len(split); i++ {
         fmt.Println(packets[i].message)
     }
+    
+    fmt.Println("------------------------------------------------------------")
     
     comChan := make (chan communication)
     
