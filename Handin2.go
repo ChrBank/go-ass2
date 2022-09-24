@@ -5,6 +5,7 @@ import (
     "strings"
     "math/rand"
     "time"
+    "sync"
 )
 
 type packet struct {
@@ -45,10 +46,17 @@ func main() {
     
     comChan := make (chan communication)
     
-    go server(comChan)
-    go client(comChan, packets)
-    
-    time.Sleep(5 * time.Second)
+    var wg sync.WaitGroup
+    wg.Add(2)
+    go func() {
+        server(comChan)
+        wg.Done()
+    }()
+    go func() {
+        client(comChan, packets)
+        wg.Done()
+    }()
+    wg.Wait()
 }
 
 func server(comChan chan communication) {
@@ -56,54 +64,49 @@ func server(comChan chan communication) {
     inUse := false
     var response = communication {}
     
-    for true {
-        m := <- comChan
-        if (m.message && !inUse) {                                      // Check request to use me
-            inUse = true
-            response.message = true
-            response.packetChan = packetChannel                         // Put packet channel into response
-            comChan <- response                                         // Send response
-            m := <- comChan                               
-            if (m.message) {                                            // If received necessary info then proceed
-                receivedPackets := make ([]packet, m.packetAmount)
-                for i := 0; i < m.packetAmount; i++ {
-                    p := <- packetChannel
-                    receivedPackets[p.index] = p                        // Puts the packet into the correct place
-                    fmt.Println("-------------Packet", p.index, "Received")
-                    comChan <- communication {packetReceived: p.index}  // Respond to received packet
-                }
-                
-                for i := 0; i < len(receivedPackets); i++ {
-                        fmt.Println(receivedPackets[i].message)
-                }
-                
-                inUse = false
+    m := <- comChan
+    if (m.message && !inUse) {                                          // Check request to use me
+        inUse = true
+        response.message = true
+        response.packetChan = packetChannel                             // Put packet channel into response
+        comChan <- response                                             // Send response
+        m := <- comChan                               
+        if (m.message) {                                                // If received necessary info then proceed
+            receivedPackets := make ([]packet, m.packetAmount)
+            for i := 0; i < m.packetAmount; i++ {
+                p := <- packetChannel
+                receivedPackets[p.index] = p                            // Puts the packet into the correct place
+                fmt.Println("-------------Packet", p.index, "Received")
+                comChan <- communication {packetReceived: p.index}      // Respond to received packet
             }
-        } else {
-            response.message = false
+            
+            for i := 0; i < len(receivedPackets); i++ {
+                    fmt.Println(receivedPackets[i].message)
+            }
+            
+            inUse = false
         }
-        break;
+    } else {
+        response.message = false
     }
 }
 
 func client(comChan chan communication, packets []packet) {
-    for true {
     comChan <- communication {message: true}                            // Request to use server
-        m := <- comChan
-        if (m.message) {                                                // Server free to use
-            comChan <- communication {
-                    message: true, packetAmount: len(packets)}          // Sends amount of packets
+    m := <- comChan
+    if (m.message) {                                                    // Server free to use
+        comChan <- communication {
+                message: true, packetAmount: len(packets)}              // Sends amount of packets
+        
+        var packetChannel = m.packetChan
+        
+        for i := 0; i < len(packets); i++ {
+            packetChannel <- packets[i]
+            fmt.Println("----------Packet", packets[i].index, "Sent")
             
-            var packetChannel = m.packetChan
-            
-            for i := 0; i < len(packets); i++ {
-                packetChannel <- packets[i]
-                fmt.Println("----------Packet", packets[i].index, "Sent")
-                
-                r := <- comChan
-                if (r.packetReceived == 1) {
-                    continue
-                }
+            r := <- comChan
+            if (r.packetReceived == 1) {
+                continue
             }
         }
     }
