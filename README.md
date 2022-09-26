@@ -5,4 +5,5 @@ We use channels to send packets, requests/answers and metadata. To send packets 
 qB - Our implementation uses thread to simulate the client and server interaction. 
 It is not realistic to use threads since they are running on the same local PC. 
 
-qC - 
+qC - The server looks at the sequence number of the packet and inserts it correctly into an array. 
+
